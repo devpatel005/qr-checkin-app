@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Delegate Check-In App</title>
+  <style>
+    /* General Styles */
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f7f6;
+      color: #333;
+      margin: 0;
+      padding: 20px;
+      line-height: 1.6;
+    }
+
+    /* Search Bar */
+    #search {
+      margin-bottom: 15px;
+      padding: 10px;
+      width: 100%;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      font-size: 16px;
+    }
+
+    /* Metrics Section */
+    #metrics {
+      background-color: #e8f1f8;
+      border: 1px solid #b0c4de;
+      border-radius: 5px;
+      padding: 15px;
+      margin-bottom: 20px;
+      font-size: 16px;
+    }
+
+    #metrics h3, #metrics h4 {
+      color: #333;
+      margin-top: 0;
+    }
+
+    /* Table Styles */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      margin-bottom: 20px;
+      background-color: #fff;
+      border-radius: 5px;
+      overflow: hidden;
+    }
+
+    th, td {
+      padding: 12px 15px;
+      border-bottom: 1px solid #ddd;
+      text-align: left;
+      font-size: 15px;
+    }
+
+    th {
+      background-color: #4CAF50;
+      color: white;
+      font-weight: bold;
+    }
+
+    tr:hover {
+      background-color: #f1f1f1;
+    }
+
+    /* Buttons */
+    button {
+      background-color: #4CAF50;
+      color: white;
+      padding: 5px 10px;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    #add-delegate-btn {
+      margin-bottom: 20px;
+      padding: 10px 15px;
+    }
+
+    /* Modal Styles */
+    #modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      justify-content: center;
+      align-items: center;
+    }
+
+    #modal-content {
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 5px;
+      width: 90%;
+      max-width: 500px;
+    }
+
+    #modal-content h3 {
+      margin-top: 0;
+    }
+
+    #modal-content input, #modal-content select {
+      width: 100%;
+      padding: 8px;
+      margin: 5px 0;
+      border: 1px solid #ddd;
+      border-radius: 3px;
+    }
+
+    #modal-close {
+      background-color: #ff4d4d;
+      margin-top: 10px;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      th, td {
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="metrics"></div>
+  <input type="text" id="search" placeholder="Search by First Name" oninput="searchTable()" />
+  <button id="add-delegate-btn" onclick="showAddDelegateModal()">Add New Delegate</button>
+
+  <table id="data-table">
+    <thead>
+      <tr>
+        <th>First Name</th>
+        <th>Middle Name</th>
+        <th>Last Name</th>
+        <th>Wing</th>
+        <th>Grade</th>
+        <th>Father's Name</th>
+        <th>Father's Number</th>
+        <th>Father's Email</th>
+        <th>Mother's Name</th>
+        <th>Mother's Number</th>
+        <th>Mother's Email</th>
+        <th>Medical Info</th>
+        <th>Registration Status</th>
+        <th>QR ID</th>
+        <th>Edit</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <!-- Modal for Adding a New Delegate -->
+  <div id="modal">
+    <div id="modal-content">
+      <h3>Add New Delegate</h3>
+      <input type="text" id="new-first-name" placeholder="First Name" />
+      <input type="text" id="new-middle-name" placeholder="Middle Name" />
+      <input type="text" id="new-last-name" placeholder="Last Name" />
+      <input type="text" id="new-wing" placeholder="Wing (bal/balika)" />
+      <input type="text" id="new-grade" placeholder="Grade" />
+      <input type="text" id="new-father-name" placeholder="Father's Name" />
+      <input type="text" id="new-father-num" placeholder="Father's Number" />
+      <input type="email" id="new-father-email" placeholder="Father's Email" />
+      <input type="text" id="new-mother-name" placeholder="Mother's Name" />
+      <input type="text" id="new-mother-num" placeholder="Mother's Number" />
+      <input type="email" id="new-mother-email" placeholder="Mother's Email" />
+      <input type="text" id="new-med-info" placeholder="Medical Info" />
+      <input type="text" id="new-registration-status" placeholder="Registration Status" />
+      <button onclick="addNewDelegate()">Save Delegate</button>
+      <button id="modal-close" onclick="closeAddDelegateModal()">Close</button>
+    </div>
+  </div>
+
+  <script>
+    const apiUrl = 'http://REPLACE:8080/api/qrcodes';
+    const apiUpdate = 'http://REPLACE:8080/api/qrcodes/newdelegate';
+
+    function showAddDelegateModal() {
+      document.getElementById('modal').style.display = 'flex';
+    }
+
+    function closeAddDelegateModal() {
+      document.getElementById('modal').style.display = 'none';
+    }
+
+    async function loadInitialData() {
+      try {
+        const response = await fetch(apiUrl);
+        const data = await response.json();
+        populateTable(data);
+        calculateMetrics(data);
+      } catch (error) {
+        console.error('Error loading initial data:', error);
+      }
+    }
+
+
+
+    function populateTable(data) {
+      const tableBody = document.querySelector('#data-table tbody');
+      tableBody.innerHTML = '';
+      data.forEach((row) => {
+        const tr = document.createElement('tr');
+        tr.dataset.id = row.id;
+
+        tr.innerHTML = `
+          <td>${row.firstName}</td>
+          <td>${row.middleName}</td>
+          <td>${row.lastName}</td>
+          <td>${row.wing}</td>
+          <td>${row.gradeLvl}</td>
+          <td>${row.fatherName}</td>
+          <td>${row.fatherNum}</td>
+          <td>${row.fatherEmail}</td>
+          <td>${row.motherName}</td>
+          <td>${row.motherNum}</td>
+          <td>${row.motherEmail}</td>
+          <td>${row.medInfo}</td>
+          <td>${row.checkInStatus}</td>
+          <td>${row.id}</td>
+          <td><button onclick="editRow('${row.id}')">Edit</button></td>
+        `;
+        tableBody.appendChild(tr);
+      });
+    }
+
+    function searchTable() {
+      const input = document.getElementById('search').value.toLowerCase();
+      const rows = document.querySelectorAll('#data-table tbody tr');
+      rows.forEach(row => {
+        const firstName = row.cells[0].innerText.toLowerCase();
+        row.style.display = firstName.includes(input) ? '' : 'none';
+      });
+    }
+
+    function editRow(id) {
+      const row = document.querySelector(`tr[data-id='${id}']`);
+      const cells = row.querySelectorAll('td:not(:last-child)');
+      const editableFields = [...cells].slice(0, -1);
+      editableFields.forEach(cell => {
+        const text = cell.innerText;
+        cell.innerHTML = `<input type="text" value="${text}" />`;
+      });
+      row.lastElementChild.innerHTML = `<button onclick="saveRow('${id}')">Save</button>`;
+    }
+
+    async function saveRow(id) {
+  const row = document.querySelector(`tr[data-id='${id}']`);
+  const cells = row.querySelectorAll('td input');
+  const updatedData = {
+    firstName: cells[0].value,
+    middleName: cells[1].value,
+    lastName: cells[2].value,
+    wing: cells[3].value,
+    gradeLvl: cells[4].value,
+    fatherName: cells[5].value,
+    fatherNum: cells[6].value,
+    fatherEmail: cells[7].value,
+    motherName: cells[8].value,
+    motherNum: cells[9].value,
+    motherEmail: cells[10].value,
+    medInfo: cells[11].value,
+    checkInStatus: cells[12].value,
+  };
+
+  try {
+    await fetch(`${apiUrl}/${id}`, {
+      method: 'PUT', // Changed from POST to PUT for updates
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(updatedData)
+    });
+
+    loadInitialData(); // Refreshes table to show updated data
+  } catch (error) {
+    console.error('Error saving row:', error);
+  }
+}
+
+function calculateMetrics(data) {
+    const metrics = {
+        wingTotals: { bal: 0, balika: 0 },
+        gradeTotals: {},
+        overallTotal: 0,
+        checkInStatuses: {},
+    };
+
+    data.forEach(row => {
+        // Convert wing value and handle "Balak" case
+        const wingInput = (row.wing || '').trim().toLowerCase();
+        // Map "balak" to "bal"
+        const wing = wingInput === 'balak' ? 'bal' : wingInput;
+        
+        const gradeLvl = row.gradeLvl;
+        const isCheckedIn = row.checkInStatus === "Checked In";
+        
+        // Initialize the grade level entry if it doesn't exist
+        if (!metrics.gradeTotals[gradeLvl]) {
+            metrics.gradeTotals[gradeLvl] = { bal: 0, balika: 0, total: 0 };
+            metrics.checkInStatuses[gradeLvl] = { checkedIn: 0, notCheckedIn: 0 };
+        }
+
+        // Only count wings if the student is checked in
+        if (isCheckedIn) {
+            if (wing === 'bal' || wing === 'balak') {
+                metrics.wingTotals.bal++;
+                metrics.gradeTotals[gradeLvl].bal++;
+            } else if (wing === 'balika') {
+                metrics.wingTotals.balika++;
+                metrics.gradeTotals[gradeLvl].balika++;
+            }
+        }
+
+        // Increment total counts for grades
+        metrics.gradeTotals[gradeLvl].total++;
+
+        // Count check-in statuses
+        if (isCheckedIn) {
+            metrics.checkInStatuses[gradeLvl].checkedIn++;
+            metrics.overallTotal++;
+        } else {
+            metrics.checkInStatuses[gradeLvl].notCheckedIn++;
+        }
+    });
+
+    displayMetrics(metrics);
+}
+
+function displayMetrics(metrics) {
+    const metricsDiv = document.getElementById('metrics');
+    const gradeOrder = [
+        "Pre-K",
+        "Kindergarten",
+        "Grade 1",
+        "Grade 2",
+        "Grade 3",
+        "Grade 4",
+        "Grade 5",
+        "Grade 6",
+        "Grade 7",
+        "Grade 8",
+    ];
+
+    // Generate HTML for each grade
+    const gradeMetricsHtml = gradeOrder.map(grade => {
+        const counts = metrics.gradeTotals[grade] || { bal: 0, balika: 0, total: 0 };
+        const checkedIn = metrics.checkInStatuses[grade]?.checkedIn || 0;
+        
+        return `<p>${grade}: ${checkedIn}/${counts.total} checked in [Bal: ${counts.bal}, Balika: ${counts.balika}]</p>`;
+    }).join('');
+
+    metricsDiv.innerHTML = `
+        <h3>Metrics</h3>
+        <h4>Wing Totals:</h4>
+        <p>Bal: ${metrics.wingTotals.bal}</p>
+        <p>Balika: ${metrics.wingTotals.balika}</p>
+        <h4>Grade Level Totals:</h4>
+        ${gradeMetricsHtml}
+        <h4>Overall Total: ${metrics.overallTotal}/${Object.values(metrics.gradeTotals).reduce((sum, grade) => sum + grade.total, 0)}</h4>
+    `;
+}
+
+
+
+    async function addNewDelegate() {
+      const newDelegate = {
+        firstName: document.getElementById('new-first-name').value,
+        middleName: document.getElementById('new-middle-name').value,
+        lastName: document.getElementById('new-last-name').value,
+        wing: document.getElementById('new-wing').value,
+        gradeLvl: document.getElementById('new-grade').value,
+        fatherName: document.getElementById('new-father-name').value,
+        fatherNum: document.getElementById('new-father-num').value,
+        fatherEmail: document.getElementById('new-father-email').value,
+        motherName: document.getElementById('new-mother-name').value,
+        motherNum: document.getElementById('new-mother-num').value,
+        motherEmail: document.getElementById('new-mother-email').value,
+        medInfo: document.getElementById('new-med-info').value,
+        checkInStatus: document.getElementById('new-registration-status').value
+      };
+
+      try {
+        await fetch(apiUpdate, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(newDelegate)
+        });
+        closeAddDelegateModal();
+        loadInitialData();
+      } catch (error) {
+        console.error('Error adding new delegate:', error);
+      }
+    }
+
+
+
+// Function to update the table with the received QR code data
+function updateTable(qrCode) {
+    const table = document.getElementById('qrTable'); // Replace with your actual table ID
+    const rows = table.getElementsByTagName('tr');
+
+    for (let row of rows) {
+        const cells = row.getElementsByTagName('td');
+        // Assuming the first cell contains the qrId
+        if (cells.length > 0 && cells[0].textContent == qrCode.id) {
+            // Update the cells in the row with the new qrCode data
+            cells[1].textContent = qrCode.someOtherProperty; // Update other cells as needed
+            // Add more cells updates as needed
+            break;
+        }
+    }
+}
+
+
+
+
+
+
+    loadInitialData();
+  </script>
+</body>
+</html>
